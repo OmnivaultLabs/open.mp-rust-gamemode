@@ -1,0 +1,66 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches:         
+      - main
+    paths:
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/build.yml" 
+env: 
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    name: Build
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        toolchain:
+          - stable-i686
+          - stable
+        build: [linux, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+          - build: windows
+            os: windows-latest
+            rust: stable
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          sudo apt install gcc-multilib libssl-dev:i386 zlib1g:i386 -y
+        if: matrix.os == 'ubuntu-latest'
+      - run: rustup update ${{ matrix.toolchain }}  --no-self-update && rustup default ${{ matrix.toolchain }}
+      - run: cargo build --verbose
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          sudo apt install gcc-multilib libssl-dev:i386 -y
+      - name: Install Rust
+        run: rustup update stable && rustup default stable && rustup component add rustfmt
+      - run: cargo fmt -- --check
+
+  clippy_check:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
